@@ -343,6 +343,12 @@ export default function KanbanBoard({ initialOffer }: KanbanBoardProps) {
           <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded font-medium">
             {groupedApps.REJECTED.length} refusé(s)
           </span>
+          <Link
+            href={`/admin/offres/${initialOffer.id}/shortlists`}
+            className="ml-2 flex items-center gap-1 rounded border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+          >
+            📋 Shortlists Client
+          </Link>
         </div>
       </div>
 

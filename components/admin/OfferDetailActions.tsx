@@ -122,7 +122,14 @@ export default function OfferDetailActions({
         <Button variant="default" size="sm" asChild>
           <Link href={`/admin/offres/${offerId}/pipeline`} className="flex items-center gap-1.5">
             <Kanban className="h-4 w-4" />
-            <span>Vue Pipeline (Kanban)</span>
+            <span>Vue Pipeline</span>
+          </Link>
+        </Button>
+
+        {/* Bouton Shortlists Client */}
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/admin/offres/${offerId}/shortlists`} className="flex items-center gap-1.5">
+            <span>📋 Shortlists Client</span>
           </Link>
         </Button>
 

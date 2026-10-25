@@ -32,6 +32,23 @@ enum OfferStatus {
   CLOSED
 }
 
+enum ShortlistStatus {
+  DRAFT
+  SENT
+}
+
+enum ConsentStatus {
+  PENDING
+  GRANTED
+  DECLINED
+}
+
+enum ClientDecision {
+  INTERESTED
+  NOT_FOR_THIS_ROLE
+  NEEDS_INFO
+}
+
 enum ApplicationStatus {
   IDENTIFIED
   CONTACTED
@@ -122,6 +139,8 @@ model Agency {
   jobQuestions         JobQuestion[]
   assessmentAttempts   AssessmentAttempt[]
   attemptAnswers       AttemptAnswer[]
+  shortlists           Shortlist[]
+  shortlistItems       ShortlistItem[]
 
   @@index([slug])
   @@index([status])
@@ -154,6 +173,7 @@ model User {
   invitations    Invitation[]        @relation("InvitedBy")
   auditLogs      AuditLog[]
   gradedAttempts AssessmentAttempt[] @relation("AttemptGradedBy")
+  createdShortlists Shortlist[]      @relation("ShortlistCreatedBy")
 
   @@index([agencyId])
   @@index([email])
@@ -231,6 +251,7 @@ model JobOffer {
 
   // Relations
   applications Application[]
+  shortlists   Shortlist[]
 
   @@index([agencyId])
   @@index([companyId])
@@ -300,6 +321,7 @@ model Application {
   statusHistory      ApplicationHistory[]
   messages           Message[]
   assessmentAttempts AssessmentAttempt[]
+  shortlistItems     ShortlistItem[]
 
   @@unique([candidateId, jobOfferId])
   @@index([agencyId])
@@ -546,4 +568,57 @@ model RateLimit {
   updatedAt DateTime @updatedAt
 
   @@index([resetAt])
+}
+
+// ─── SHORTLIST & SOUMISSION CLIENT (Étape 9 / PRD V2 §6.2) ──
+
+model Shortlist {
+  id          String          @id @default(cuid())
+  agencyId    String
+  agency      Agency          @relation(fields: [agencyId], references: [id])
+  jobOfferId  String
+  jobOffer    JobOffer        @relation(fields: [jobOfferId], references: [id])
+  createdById String
+  createdBy   User            @relation("ShortlistCreatedBy", fields: [createdById], references: [id])
+  title       String          // ex: "Shortlist #1 - Développeur Fullstack"
+  message     String?         // Note / message d'accompagnement pour l'entreprise cliente
+  status      ShortlistStatus @default(DRAFT)
+  sentAt      DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relations
+  items ShortlistItem[]
+
+  @@index([agencyId])
+  @@index([jobOfferId])
+  @@index([status])
+}
+
+model ShortlistItem {
+  id             String          @id @default(cuid())
+  agencyId       String
+  agency         Agency          @relation(fields: [agencyId], references: [id])
+  shortlistId    String
+  shortlist      Shortlist       @relation(fields: [shortlistId], references: [id], onDelete: Cascade)
+  applicationId  String
+  application    Application     @relation(fields: [applicationId], references: [id])
+  summary        String?         // Synthèse personnalisée rédigée par le consultant pour ce profil
+  showTestResult Boolean         @default(true) // Inclure le score global du test
+  showSubscores  Boolean         @default(true) // Détailler les sous-scores par compétence
+  cvShared       Boolean         @default(true) // Partager le CV en PJ sécurisée
+  consentStatus  ConsentStatus   @default(PENDING) // Règle stricte PRD §6.2 : consentement requis avant envoi client
+  consentAt      DateTime?       // Date et heure d'accord du candidat
+  clientDecision ClientDecision? // Choix du client : INTERESTED | NOT_FOR_THIS_ROLE | NEEDS_INFO
+  clientReason   String?         // Motif (obligatoire si NOT_FOR_THIS_ROLE ou NEEDS_INFO)
+  clientDecidedAt DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([shortlistId, applicationId])
+  @@index([agencyId])
+  @@index([shortlistId])
+  @@index([applicationId])
+  @@index([consentStatus])
+  @@index([clientDecision])
 }
