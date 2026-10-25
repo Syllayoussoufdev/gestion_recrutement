@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 export interface AdminSidebarProps {
   agencyName: string;
   agencyLogoUrl: string | null;
+  brandKey?: string;
   userFirstName: string;
   userLastName: string;
   userRole: "AGENCY_ADMIN" | "CONSULTANT";
@@ -58,9 +59,24 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
+const BRAND_ACTIVE_CLASSES: Record<string, string> = {
+  emerald: "bg-emerald-600 text-white hover:bg-emerald-700",
+  blue: "bg-blue-600 text-white hover:bg-blue-700",
+  indigo: "bg-indigo-600 text-white hover:bg-indigo-700",
+  slate: "bg-slate-900 text-white hover:bg-slate-800",
+};
+
+const BRAND_BADGE_CLASSES: Record<string, string> = {
+  emerald: "bg-emerald-600 text-white",
+  blue: "bg-blue-600 text-white",
+  indigo: "bg-indigo-600 text-white",
+  slate: "bg-slate-900 text-white",
+};
+
 export default function AdminSidebar({
   agencyName,
   agencyLogoUrl,
+  brandKey = "slate",
   userFirstName,
   userLastName,
   userRole,
@@ -69,6 +85,9 @@ export default function AdminSidebar({
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  const activeLinkClass = BRAND_ACTIVE_CLASSES[brandKey] || BRAND_ACTIVE_CLASSES.slate;
+  const brandBadgeClass = BRAND_BADGE_CLASSES[brandKey] || BRAND_BADGE_CLASSES.slate;
 
   const visibleItems = NAV_ITEMS.filter(
     (item) => !item.adminOnly || userRole === "AGENCY_ADMIN"
@@ -105,7 +124,7 @@ export default function AdminSidebar({
             className={cn(
               "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
               active
-                ? "bg-slate-900 text-white"
+                ? activeLinkClass
                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
             )}
           >
@@ -130,7 +149,7 @@ export default function AdminSidebar({
               className="h-8 w-8 rounded-md object-contain"
             />
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-900 text-xs font-bold text-white">
+            <div className={cn("flex h-8 w-8 items-center justify-center rounded-md text-xs font-bold", brandBadgeClass)}>
               {agencyName.slice(0, 2).toUpperCase()}
             </div>
           )}
@@ -206,7 +225,7 @@ export default function AdminSidebar({
       {/* Sheet Mobile */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen} side="left">
         <div className="mb-6 flex items-center gap-3 border-b border-slate-200 pb-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-900 text-xs font-bold text-white">
+          <div className={cn("flex h-8 w-8 items-center justify-center rounded-md text-xs font-bold", brandBadgeClass)}>
             {agencyName.slice(0, 2).toUpperCase()}
           </div>
           <div>

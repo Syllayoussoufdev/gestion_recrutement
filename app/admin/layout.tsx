@@ -22,6 +22,7 @@ export default async function AdminLayout({
     select: {
       name: true,
       logoUrl: true,
+      brandKey: true,
     },
   });
 
@@ -34,6 +35,7 @@ export default async function AdminLayout({
       <AdminSidebar
         agencyName={agency.name}
         agencyLogoUrl={agency.logoUrl}
+        brandKey={agency.brandKey}
         userFirstName={session.firstName}
         userLastName={session.lastName}
         userRole={session.role}
