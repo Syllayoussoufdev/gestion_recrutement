@@ -64,6 +64,27 @@ enum CandidateSource {
   OTHER
 }
 
+enum QuestionType {
+  MCQ_SINGLE
+  MCQ_MULTI
+  SHORT_TEXT
+  LONG_TEXT
+}
+
+enum AttemptStatus {
+  SENT
+  STARTED
+  SUBMITTED
+  EXPIRED
+  GRADED
+}
+
+enum ScoreSuggestion {
+  RECOMMEND_VALIDATE
+  TO_REVIEW
+  BELOW_THRESHOLD
+}
+
 // ─── AGENCY (Cabinet) ────────────────────────────────────
 
 model Agency {
@@ -97,6 +118,10 @@ model Agency {
   messages             Message[]
   invitations          Invitation[]
   auditLogs            AuditLog[]
+  assessments          Assessment[]
+  jobQuestions         JobQuestion[]
+  assessmentAttempts   AssessmentAttempt[]
+  attemptAnswers       AttemptAnswer[]
 
   @@index([slug])
   @@index([status])
@@ -120,14 +145,15 @@ model User {
   updatedAt    DateTime @updatedAt
 
   // Relations métier
-  companyId     String?
-  company       Company?     @relation(fields: [companyId], references: [id])
-  candidateId   String?      @unique
-  candidate     Candidate?   @relation(fields: [candidateId], references: [id])
-  notesAuthored Note[]
-  messagesSent  Message[]    @relation("MessageSender")
-  invitations   Invitation[] @relation("InvitedBy")
-  auditLogs     AuditLog[]
+  companyId      String?
+  company        Company?            @relation(fields: [companyId], references: [id])
+  candidateId    String?             @unique
+  candidate      Candidate?          @relation(fields: [candidateId], references: [id])
+  notesAuthored  Note[]
+  messagesSent   Message[]           @relation("MessageSender")
+  invitations    Invitation[]        @relation("InvitedBy")
+  auditLogs      AuditLog[]
+  gradedAttempts AssessmentAttempt[] @relation("AttemptGradedBy")
 
   @@index([agencyId])
   @@index([email])
@@ -185,21 +211,23 @@ model CompanyContact {
 // ─── JOB OFFER ───────────────────────────────────────────
 
 model JobOffer {
-  id           String       @id @default(cuid())
+  id           String        @id @default(cuid())
   agencyId     String
-  agency       Agency       @relation(fields: [agencyId], references: [id])
+  agency       Agency        @relation(fields: [agencyId], references: [id])
   companyId    String
-  company      Company      @relation(fields: [companyId], references: [id])
+  company      Company       @relation(fields: [companyId], references: [id])
   title        String
-  description  String       // Markdown
-  skills       String[]     // Tags libres
+  description  String        // Markdown
+  skills       String[]      // Tags libres
   contractType ContractType
   location     String?
   salaryMin    Int?
   salaryMax    Int?
-  status       OfferStatus  @default(DRAFT)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  status       OfferStatus   @default(DRAFT)
+  assessmentId String?
+  assessment   Assessment?   @relation(fields: [assessmentId], references: [id])
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   // Relations
   applications Application[]
@@ -207,6 +235,7 @@ model JobOffer {
   @@index([agencyId])
   @@index([companyId])
   @@index([status])
+  @@index([assessmentId])
 }
 
 // ─── CANDIDATE ───────────────────────────────────────────
@@ -238,12 +267,13 @@ model Candidate {
   updatedAt         DateTime        @updatedAt
 
   // Relations
-  user         User?
-  applications Application[]
-  notes        Note[]
-  documents    Document[]
-  messages     Message[]
-  invitations  Invitation[]
+  user               User?
+  applications       Application[]
+  notes              Note[]
+  documents          Document[]
+  messages           Message[]
+  invitations        Invitation[]
+  assessmentAttempts AssessmentAttempt[]
 
   @@unique([agencyId, email])
   @@index([agencyId])
@@ -267,8 +297,9 @@ model Application {
   updatedAt       DateTime          @updatedAt
 
   // Relations
-  statusHistory ApplicationHistory[]
-  messages      Message[]
+  statusHistory      ApplicationHistory[]
+  messages           Message[]
+  assessmentAttempts AssessmentAttempt[]
 
   @@unique([candidateId, jobOfferId])
   @@index([agencyId])
@@ -351,6 +382,114 @@ model Message {
   @@index([agencyId])
   @@index([applicationId])
   @@index([candidateId])
+}
+
+// ─── ASSESSMENT (Évaluation / Test — PRD V2 §4.1) ────────
+
+model Assessment {
+  id               String       @id @default(cuid())
+  agencyId         String
+  agency           Agency       @relation(fields: [agencyId], references: [id])
+  title            String
+  description      String?
+  instructions     String?
+  durationMinutes  Int?         // Durée limite en minutes (optionnelle)
+  passPercent      Int          @default(70) // Seuil de validation suggérée (défaut 70%)
+  reviewPercent    Int          @default(50) // Seuil "à revoir" (défaut 50%)
+  maxAttempts      Int          @default(1)
+  shuffleQuestions Boolean      @default(false)
+  shuffleOptions   Boolean      @default(false)
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  // Relations
+  questions JobQuestion[]
+  offers    JobOffer[]
+  attempts  AssessmentAttempt[]
+
+  @@index([agencyId])
+}
+
+model JobQuestion {
+  id           String       @id @default(cuid())
+  agencyId     String
+  agency       Agency       @relation(fields: [agencyId], references: [id])
+  assessmentId String
+  assessment   Assessment   @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  order        Int          @default(0)
+  type         QuestionType @default(MCQ_SINGLE)
+  prompt       String       // Énoncé texte de la question
+  options      Json?        // Pour QCM : array of { id: string, text: string, isCorrect: boolean }
+  points       Float        @default(1.0)
+  skillTag     String?      // Compétence associée (ex: "React", "Docker", "Anglais")
+  rubric       String?      // Consigne de notation manuelle pour les questions texte
+  required     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  answers AttemptAnswer[]
+
+  @@index([agencyId])
+  @@index([assessmentId])
+}
+
+model AssessmentAttempt {
+  id            String           @id @default(cuid())
+  agencyId      String
+  agency        Agency           @relation(fields: [agencyId], references: [id])
+  assessmentId  String
+  assessment    Assessment       @relation(fields: [assessmentId], references: [id])
+  applicationId String
+  application   Application      @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  candidateId   String
+  candidate     Candidate        @relation(fields: [candidateId], references: [id])
+  tokenHash     String           @unique // SHA-256 du jeton secret 32 octets pour /test/[token] (R6)
+  expiresAt     DateTime
+  status        AttemptStatus    @default(SENT)
+  startedAt     DateTime?
+  submittedAt   DateTime?
+  consentAt     DateTime?        // Horodatage du consentement explicite candidat
+  autoPoints    Float            @default(0.0) // Points QCM calculés automatiquement
+  manualPoints  Float?           // Points des questions texte attribués par le consultant
+  maxPoints     Float            @default(0.0) // Total possible
+  percent       Float?           // Pourcentage global (0-100)
+  suggestion    ScoreSuggestion? // Recommandation déterministe (R3)
+  gradedById    String?
+  gradedBy      User?            @relation("AttemptGradedBy", fields: [gradedById], references: [id])
+  gradedAt      DateTime?
+  attemptNumber Int              @default(1)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  answers AttemptAnswer[]
+
+  @@index([agencyId])
+  @@index([tokenHash])
+  @@index([applicationId])
+  @@index([candidateId])
+  @@index([status])
+}
+
+model AttemptAnswer {
+  id           String            @id @default(cuid())
+  agencyId     String
+  agency       Agency            @relation(fields: [agencyId], references: [id])
+  attemptId    String
+  attempt      AssessmentAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     JobQuestion       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answer       Json?             // Réponse du candidat : string, string[] (choix cochés), etc.
+  autoPoints   Float?            // Points calculés automatiquement
+  manualPoints Float?            // Points attribués manuellement
+  comment      String?           // Commentaire du consultant
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([attemptId, questionId])
+  @@index([agencyId])
+  @@index([attemptId])
+  @@index([questionId])
 }
 
 // ─── INVITATION (Jeton haché — R6 / PRD V2 §10.2) ────────
