@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Stratos Conseil — Plateforme de Recrutement",
+  title: {
+    default: "Plateforme de Recrutement",
+    template: "%s | Plateforme de Recrutement",
+  },
   description: "Plateforme privée multi-cabinets de gestion du cycle de recrutement",
 };
 
