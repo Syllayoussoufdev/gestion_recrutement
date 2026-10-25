@@ -41,7 +41,7 @@ async function runTests() {
     });
     const res = await loginPost(badOriginReq);
     assert.equal(res.status, 403, "Une origine externe doit être rejetée en 403");
-    console.log("✔ [1/6] Protection CSRF Origin : requête externe rejetée (403)");
+    console.log("✔ [1/7] Protection CSRF Origin : requête externe rejetée (403)");
   }
 
   // 2. Connexion des 5 rôles
@@ -108,7 +108,7 @@ async function runTests() {
     cookiesByRole[item.expectedRole] = extractSessionCookie(setCookie);
   }
   console.log(
-    "✔ [2/6] Connexion des 5 rôles (PLATFORM_ADMIN, AGENCY_ADMIN, CONSULTANT, CLIENT, CANDIDAT) + Cookie HttpOnly SameSite=Lax : OK"
+    "✔ [2/7] Connexion des 5 rôles (PLATFORM_ADMIN, AGENCY_ADMIN, CONSULTANT, CLIENT, CANDIDAT) + Cookie HttpOnly SameSite=Lax : OK"
   );
 
   // 3. Middleware : accès non authentifié et accès interdit inter-rôles
@@ -151,7 +151,7 @@ async function runTests() {
     );
 
     console.log(
-      "✔ [3/6] Middleware par rôle (/platform, /admin, /client, /candidat) : redirections 307, 401 et 403 validées"
+      "✔ [3/7] Middleware par rôle (/platform, /admin, /client, /candidat) : redirections 307, 401 et 403 validées"
     );
   }
 
@@ -184,7 +184,7 @@ async function runTests() {
       data: { tokenVersion: 0 },
     });
 
-    console.log("✔ [4/6] Révocation immédiate via tokenVersion en base : 401 validé");
+    console.log("✔ [4/7] Révocation immédiate via tokenVersion en base : 401 validé");
   }
 
   // 5. Couche d'accès forAgency : requête sans portée refusée
@@ -205,7 +205,7 @@ async function runTests() {
       "forAgency('') doit lever UnscopedTenantAccessError"
     );
     console.log(
-      "✔ [5/6] Couche d'accès forAgency : requête sans agencyId refusée (UnscopedTenantAccessError)"
+      "✔ [5/7] Couche d'accès forAgency : requête sans agencyId refusée (UnscopedTenantAccessError)"
     );
   }
 
@@ -267,7 +267,51 @@ async function runTests() {
     );
 
     console.log(
-      "✔ [6/6] Isolation inter-cabinets via forAgency : filtrage auto + 404 systématique sur ressource d'un autre cabinet"
+      "✔ [6/7] Isolation inter-cabinets via forAgency : filtrage auto + 404 systématique sur ressource d'un autre cabinet"
+    );
+
+    // 7. Non-régression : findUnique / findUniqueOrThrow avec `select` sans agencyId
+    //    (bug trouvé au test live de l'Étape 3 : le layout client retombait sur un nom générique).
+    const stratosCompany = await prisma.company.findFirstOrThrow({
+      where: { agencyId: stratos.id },
+    });
+
+    const ownWithSelect = await stratosDb.company.findUnique({
+      where: { id: stratosCompany.id },
+      select: { name: true },
+    });
+    assert.ok(ownWithSelect, "findUnique + select dans son propre cabinet doit réussir");
+    assert.equal(ownWithSelect.name, stratosCompany.name);
+
+    const ownOrThrowWithSelect = await stratosDb.company.findUniqueOrThrow({
+      where: { id: stratosCompany.id },
+      select: { name: true },
+    });
+    assert.equal(ownOrThrowWithSelect.name, stratosCompany.name);
+
+    const crossWithSelect = await stratosDb.company.findUnique({
+      where: { id: demoCompany.id },
+      select: { name: true },
+    });
+    assert.equal(
+      crossWithSelect,
+      null,
+      "findUnique + select vers un autre cabinet doit rester null"
+    );
+
+    await assert.rejects(
+      async () => {
+        await stratosDb.company.findUniqueOrThrow({
+          where: { id: demoCompany.id },
+          select: { name: true },
+        });
+      },
+      (err: unknown) => err instanceof TenantResourceNotFoundError,
+      "findUniqueOrThrow + select vers un autre cabinet doit lever 404"
+    );
+
+    console.log(
+      "✔ [7/7] Non-régression select : lecture avec select OK dans son cabinet, refusée (null/404) vers l'autre"
     );
   }
 

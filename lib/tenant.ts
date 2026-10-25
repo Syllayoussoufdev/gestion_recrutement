@@ -171,26 +171,23 @@ export function forAgency(scope: AgencyScopeInput | string | null | undefined) {
           if (!TENANT_SCOPED_MODELS.has(model)) {
             return query(args);
           }
-          const result = (await query(args)) as { agencyId?: string | null } | null;
-          if (!result || result.agencyId !== agencyId) {
-            return null;
-          }
-          return result;
+          // agencyId est injecté dans le where (extendedWhereUnique, Prisma 5+) :
+          // le filtrage se fait en base et reste correct même avec un `select`
+          // qui n'inclut pas agencyId.
+          args.where = { ...(args.where ?? {}), agencyId };
+          return query(args);
         },
         async findUniqueOrThrow({ model, args, query }) {
           if (!TENANT_SCOPED_MODELS.has(model)) {
             return query(args);
           }
-          let result: { agencyId?: string | null } | null = null;
+          args.where = { ...(args.where ?? {}), agencyId };
           try {
-            result = (await query(args)) as { agencyId?: string | null } | null;
+            return await query(args);
           } catch {
+            // Introuvable OU appartenant à un autre cabinet : 404 dans les deux cas (R1).
             throw new TenantResourceNotFoundError(model);
           }
-          if (!result || result.agencyId !== agencyId) {
-            throw new TenantResourceNotFoundError(model);
-          }
-          return result;
         },
         async update({ model, args, query }) {
           if (TENANT_SCOPED_MODELS.has(model)) {
