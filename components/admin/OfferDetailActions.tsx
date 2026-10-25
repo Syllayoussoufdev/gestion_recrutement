@@ -133,12 +133,38 @@ export default function OfferDetailActions({
           </Link>
         </Button>
 
-        {/* Bouton Export CSV Pipeline */}
-        <Button variant="outline" size="sm" asChild>
-          <a href={`/api/admin/offres/${offerId}/export`} download className="flex items-center gap-1.5">
-            <span>📊 Export CSV</span>
+        {/* Groupe Exports Pipeline multi-formats */}
+        <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-xs">
+          <a
+            href={`/api/admin/offres/${offerId}/export?format=excel`}
+            download
+            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors"
+            title="Exporter le pipeline de candidatures en classeur Excel (.xlsx)"
+          >
+            <span className="text-sm">📊</span>
+            <span>Excel</span>
           </a>
-        </Button>
+          <div className="h-4 w-px bg-slate-200" />
+          <a
+            href={`/api/admin/offres/${offerId}/export?format=pdf`}
+            download
+            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 transition-colors"
+            title="Exporter le rapport de candidature en document PDF (.pdf)"
+          >
+            <span className="text-sm">📄</span>
+            <span>PDF</span>
+          </a>
+          <div className="h-4 w-px bg-slate-200" />
+          <a
+            href={`/api/admin/offres/${offerId}/export?format=csv`}
+            download
+            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+            title="Exporter le pipeline au format CSV UTF-8"
+          >
+            <span className="text-sm">📋</span>
+            <span>CSV</span>
+          </a>
+        </div>
 
         {/* Bouton Assigner Candidat */}
         <Button

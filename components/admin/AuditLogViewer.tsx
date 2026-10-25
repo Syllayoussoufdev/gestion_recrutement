@@ -27,6 +27,8 @@ interface AuditLogViewerProps {
 const ACTION_LABELS: Record<string, { label: string; color: string; icon: string }> = {
   DOCUMENT_VIEW: { label: "Consultation Document", color: "bg-blue-100 text-blue-800", icon: "📄" },
   CSV_EXPORT: { label: "Export CSV", color: "bg-purple-100 text-purple-800", icon: "📊" },
+  EXCEL_EXPORT: { label: "Export Excel", color: "bg-emerald-100 text-emerald-800", icon: "📈" },
+  PDF_EXPORT: { label: "Export PDF", color: "bg-rose-100 text-rose-800", icon: "📑" },
   RETENTION_PURGE: { label: "Purge Rétention RGPD", color: "bg-red-100 text-red-800", icon: "🔒" },
   SHORTLIST_CREATE: { label: "Création Shortlist", color: "bg-amber-100 text-amber-800", icon: "📋" },
   SHORTLIST_SENT: { label: "Shortlist Envoyée", color: "bg-emerald-100 text-emerald-800", icon: "🚀" },

@@ -265,9 +265,32 @@ export default async function AdminDashboardPage() {
                 Mesures opérationnelles de qualification, réactivité et conversion par cabinet.
               </CardDescription>
             </div>
-            <Badge variant="outline" className="w-fit text-xs font-normal text-slate-600 bg-slate-50">
-              Cabinet : {session.agencyName || "Pilote"}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="w-fit text-xs font-normal text-slate-600 bg-slate-50">
+                Cabinet : {session.agencyName || "Pilote"}
+              </Badge>
+              <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-xs">
+                <a
+                  href="/api/admin/rapports/pilote/export?format=excel"
+                  download
+                  className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors"
+                  title="Télécharger le rapport exécutif du pilote en Excel (.xlsx)"
+                >
+                  <span className="text-sm">📊</span>
+                  <span>Rapport Excel</span>
+                </a>
+                <div className="h-4 w-px bg-slate-200" />
+                <a
+                  href="/api/admin/rapports/pilote/export?format=pdf"
+                  download
+                  className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 transition-colors"
+                  title="Télécharger le rapport exécutif du pilote en PDF (.pdf)"
+                >
+                  <span className="text-sm">📄</span>
+                  <span>Rapport PDF</span>
+                </a>
+              </div>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

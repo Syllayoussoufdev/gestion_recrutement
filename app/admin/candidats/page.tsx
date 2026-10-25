@@ -106,13 +106,40 @@ export default function AdminCandidatsPage() {
             Gestion du vivier candidat, CVthèque sécurisée et suivi des compétences.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <a href="/api/admin/candidats/export" download className="flex items-center gap-1.5">
-              <span>📊</span>
-              <span>Exporter CSV</span>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Groupe Exports multi-formats */}
+          <div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 shadow-xs">
+            <a
+              href="/api/admin/candidats/export?format=excel"
+              download
+              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 transition-colors"
+              title="Télécharger le vivier en classeur Microsoft Excel (.xlsx)"
+            >
+              <span className="text-sm">📊</span>
+              <span>Excel</span>
             </a>
-          </Button>
+            <div className="h-4 w-px bg-slate-200" />
+            <a
+              href="/api/admin/candidats/export?format=pdf"
+              download
+              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 transition-colors"
+              title="Télécharger le vivier en document PDF (.pdf)"
+            >
+              <span className="text-sm">📄</span>
+              <span>PDF</span>
+            </a>
+            <div className="h-4 w-px bg-slate-200" />
+            <a
+              href="/api/admin/candidats/export?format=csv"
+              download
+              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+              title="Télécharger le vivier au format CSV UTF-8"
+            >
+              <span className="text-sm">📋</span>
+              <span>CSV</span>
+            </a>
+          </div>
+
           <Button asChild className="shrink-0">
             <Link href="/admin/candidats/new">
               <Plus className="mr-2 h-4 w-4" />
