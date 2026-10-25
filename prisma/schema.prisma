@@ -1,5 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// schema.prisma — Plateforme de Recrutement Multi-Cabinets (V2)
 
 generator client {
   provider = "prisma-client-js"
@@ -9,4 +8,403 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+}
+
+// ─── ENUMS ───────────────────────────────────────────────
+
+enum AgencyStatus {
+  PILOT
+  ACTIVE
+  SUSPENDED
+}
+
+enum Role {
+  PLATFORM_ADMIN
+  AGENCY_ADMIN
+  CONSULTANT
+  CLIENT
+  CANDIDAT
+}
+
+enum OfferStatus {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+enum ApplicationStatus {
+  IDENTIFIED
+  CONTACTED
+  ASSESSMENT_SENT
+  ASSESSMENT_DONE
+  VALIDATED
+  RH_INTERVIEW
+  PRESENTED
+  INTERVIEW_REQUESTED
+  INTERVIEW_SCHEDULED
+  CLIENT_INTERVIEW
+  OFFER
+  PLACED
+  REJECTED
+}
+
+enum ContractType {
+  CDI
+  CDD
+  FREELANCE
+  STAGE
+  ALTERNANCE
+}
+
+enum CandidateSource {
+  LINKEDIN
+  NETWORK
+  SPONTANEOUS
+  JOB_BOARD
+  OTHER
+}
+
+// ─── AGENCY (Cabinet) ────────────────────────────────────
+
+model Agency {
+  id                     String       @id @default(cuid())
+  name                   String
+  slug                   String       @unique
+  status                 AgencyStatus @default(PILOT)
+  timezone               String       @default("Africa/Abidjan")
+  logoUrl                String?
+  logoPublicId           String?
+  brandKey               String       @default("slate")
+  senderName             String
+  contactEmail           String
+  showScoreToCandidate   Boolean      @default(false)
+  anonymizeUntilInterest Boolean      @default(true)
+  retentionMonths        Int          @default(24)
+  testRetentionMonths    Int          @default(12)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  // Relations
+  users                User[]
+  companies            Company[]
+  companyContacts      CompanyContact[]
+  offers               JobOffer[]
+  candidates           Candidate[]
+  applications         Application[]
+  applicationHistories ApplicationHistory[]
+  notes                Note[]
+  documents            Document[]
+  messages             Message[]
+  invitations          Invitation[]
+  auditLogs            AuditLog[]
+
+  @@index([slug])
+  @@index([status])
+}
+
+// ─── USER ────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  agencyId     String? // Null uniquement pour PLATFORM_ADMIN
+  agency       Agency?  @relation(fields: [agencyId], references: [id])
+  email        String   @unique
+  passwordHash String
+  role         Role
+  tokenVersion Int      @default(0)
+  firstName    String
+  lastName     String
+  phone        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations métier
+  companyId     String?
+  company       Company?     @relation(fields: [companyId], references: [id])
+  candidateId   String?      @unique
+  candidate     Candidate?   @relation(fields: [candidateId], references: [id])
+  notesAuthored Note[]
+  messagesSent  Message[]    @relation("MessageSender")
+  invitations   Invitation[] @relation("InvitedBy")
+  auditLogs     AuditLog[]
+
+  @@index([agencyId])
+  @@index([email])
+  @@index([role])
+  @@index([companyId])
+}
+
+// ─── COMPANY ─────────────────────────────────────────────
+
+model Company {
+  id           String   @id @default(cuid())
+  agencyId     String
+  agency       Agency   @relation(fields: [agencyId], references: [id])
+  name         String
+  sector       String?
+  siret        String?
+  address      String?
+  city         String?
+  website      String?
+  logoUrl      String?
+  logoPublicId String?
+  archived     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  contacts    CompanyContact[]
+  offers      JobOffer[]
+  users       User[]
+  invitations Invitation[]
+
+  @@unique([agencyId, siret])
+  @@index([agencyId])
+}
+
+model CompanyContact {
+  id        String   @id @default(cuid())
+  agencyId  String
+  agency    Agency   @relation(fields: [agencyId], references: [id])
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  firstName String
+  lastName  String
+  position  String?
+  email     String?
+  phone     String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agencyId])
+  @@index([companyId])
+}
+
+// ─── JOB OFFER ───────────────────────────────────────────
+
+model JobOffer {
+  id           String       @id @default(cuid())
+  agencyId     String
+  agency       Agency       @relation(fields: [agencyId], references: [id])
+  companyId    String
+  company      Company      @relation(fields: [companyId], references: [id])
+  title        String
+  description  String       // Markdown
+  skills       String[]     // Tags libres
+  contractType ContractType
+  location     String?
+  salaryMin    Int?
+  salaryMax    Int?
+  status       OfferStatus  @default(DRAFT)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // Relations
+  applications Application[]
+
+  @@index([agencyId])
+  @@index([companyId])
+  @@index([status])
+}
+
+// ─── CANDIDATE ───────────────────────────────────────────
+
+model Candidate {
+  id                String          @id @default(cuid())
+  agencyId          String
+  agency            Agency          @relation(fields: [agencyId], references: [id])
+  firstName         String
+  lastName          String
+  email             String
+  phone             String?
+  currentTitle      String?
+  skills            String[]        // Tags libres
+  availableFrom     DateTime?
+  source            CandidateSource @default(OTHER)
+  // Stockage privé Cloudinary (aucune URL publique stockée - R4 / PRD V2 §10.1)
+  cvPublicId        String?
+  cvResourceType    String?         @default("raw")
+  cvDeliveryType    String?         @default("authenticated")
+  cvMimeType        String?
+  cvSizeBytes       Int?
+  photoPublicId     String?
+  photoResourceType String?         @default("image")
+  photoDeliveryType String?         @default("authenticated")
+  archived          Boolean         @default(false)
+  lastActivityAt    DateTime        @default(now())
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  // Relations
+  user         User?
+  applications Application[]
+  notes        Note[]
+  documents    Document[]
+  messages     Message[]
+  invitations  Invitation[]
+
+  @@unique([agencyId, email])
+  @@index([agencyId])
+}
+
+// ─── APPLICATION (pivot Candidat ↔ Offre) ────────────────
+
+model Application {
+  id              String            @id @default(cuid())
+  agencyId        String
+  agency          Agency            @relation(fields: [agencyId], references: [id])
+  candidateId     String
+  candidate       Candidate         @relation(fields: [candidateId], references: [id])
+  jobOfferId      String
+  jobOffer        JobOffer          @relation(fields: [jobOfferId], references: [id])
+  status          ApplicationStatus @default(IDENTIFIED)
+  cvSharedClient  Boolean           @default(false) // Conservé pour rétrocompatibilité v1 (remplacé par ShortlistItem.cvShared en V2)
+  rejectionReason String?
+  overrideReason  String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relations
+  statusHistory ApplicationHistory[]
+  messages      Message[]
+
+  @@unique([candidateId, jobOfferId])
+  @@index([agencyId])
+  @@index([status])
+  @@index([jobOfferId])
+}
+
+model ApplicationHistory {
+  id              String             @id @default(cuid())
+  agencyId        String
+  agency          Agency             @relation(fields: [agencyId], references: [id])
+  applicationId   String
+  application     Application        @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fromStatus      ApplicationStatus?
+  toStatus        ApplicationStatus
+  changedAt       DateTime           @default(now())
+  changedByUserId String?
+  note            String?
+  reason          String?
+
+  @@index([agencyId])
+  @@index([applicationId])
+}
+
+// ─── NOTE ────────────────────────────────────────────────
+
+model Note {
+  id          String    @id @default(cuid())
+  agencyId    String
+  agency      Agency    @relation(fields: [agencyId], references: [id])
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id])
+  content     String
+  tag         String    @default("INTERNAL") // INTERNAL | CLIENT_FEEDBACK
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([agencyId])
+  @@index([candidateId])
+}
+
+// ─── DOCUMENT (Privé — R4 / PRD V2 §10.1) ────────────────
+
+model Document {
+  id           String    @id @default(cuid())
+  agencyId     String
+  agency       Agency    @relation(fields: [agencyId], references: [id])
+  candidateId  String
+  candidate    Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  label        String    // "CV", "Lettre de motivation", "Diplôme", etc.
+  publicId     String    // Cloudinary public_id (aucune URL publique)
+  resourceType String    @default("raw") // "raw" | "image"
+  deliveryType String    @default("authenticated") // Toujours "authenticated"
+  mimeType     String
+  sizeBytes    Int
+  uploadedAt   DateTime  @default(now())
+
+  @@index([agencyId])
+  @@index([candidateId])
+}
+
+// ─── MESSAGE ─────────────────────────────────────────────
+
+model Message {
+  id            String      @id @default(cuid())
+  agencyId      String
+  agency        Agency      @relation(fields: [agencyId], references: [id])
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  candidateId   String
+  candidate     Candidate   @relation(fields: [candidateId], references: [id])
+  senderId      String
+  sender        User        @relation("MessageSender", fields: [senderId], references: [id])
+  content       String
+  readAt        DateTime?
+  createdAt     DateTime    @default(now())
+
+  @@index([agencyId])
+  @@index([applicationId])
+  @@index([candidateId])
+}
+
+// ─── INVITATION (Jeton haché — R6 / PRD V2 §10.2) ────────
+
+model Invitation {
+  id          String    @id @default(cuid())
+  agencyId    String
+  agency      Agency    @relation(fields: [agencyId], references: [id])
+  email       String
+  role        Role
+  tokenHash   String    @unique // SHA-256 du jeton aléatoire de 32 octets (jamais le jeton en clair)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  invitedById String
+  invitedBy   User      @relation("InvitedBy", fields: [invitedById], references: [id])
+
+  // Optionnel : lier à l'entité cible
+  companyId   String?
+  company     Company?   @relation(fields: [companyId], references: [id])
+  candidateId String?
+  candidate   Candidate? @relation(fields: [candidateId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([agencyId])
+  @@index([tokenHash])
+  @@index([email])
+}
+
+// ─── AUDIT LOG & RATE LIMIT (PRD V2 §10.4 & §10.6) ───────
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  agencyId    String?
+  agency      Agency?  @relation(fields: [agencyId], references: [id])
+  actorUserId String?
+  actorUser   User?    @relation(fields: [actorUserId], references: [id])
+  action      String   // ex: "DOCUMENT_VIEW", "CSV_EXPORT", "ROLE_CHANGE", "ATTEMPT_REOPEN", "CANDIDATE_DELETE"
+  targetType  String
+  targetId    String?
+  metadata    Json?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([agencyId])
+  @@index([actorUserId])
+  @@index([action])
+}
+
+model RateLimit {
+  key       String   @id
+  count     Int      @default(1)
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([resetAt])
 }
