@@ -13,7 +13,6 @@ import {
   Settings,
   ShieldAlert,
   LayoutDashboard,
-  Menu,
   LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +27,8 @@ export interface AdminSidebarProps {
   userFirstName: string;
   userLastName: string;
   userRole: "AGENCY_ADMIN" | "CONSULTANT";
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 interface NavItem {
@@ -80,10 +81,11 @@ export default function AdminSidebar({
   userFirstName,
   userLastName,
   userRole,
+  mobileOpen = false,
+  onMobileClose,
 }: AdminSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
   const activeLinkClass = BRAND_ACTIVE_CLASSES[brandKey] || BRAND_ACTIVE_CLASSES.slate;
@@ -111,6 +113,12 @@ export default function AdminSidebar({
     }
   }
 
+  const handleLinkClick = () => {
+    if (onMobileClose) {
+      onMobileClose();
+    }
+  };
+
   const navContent = (
     <nav className="flex flex-1 flex-col gap-1" aria-label="Navigation cabinet">
       {visibleItems.map((item) => {
@@ -120,9 +128,9 @@ export default function AdminSidebar({
           <Link
             key={item.href}
             href={item.href}
-            onClick={() => setMobileOpen(false)}
+            onClick={handleLinkClick}
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
               active
                 ? activeLinkClass
                 : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -138,8 +146,9 @@ export default function AdminSidebar({
 
   return (
     <>
-      {/* Sidebar Desktop */}
-      <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
+      {/* Sidebar Desktop Fixe */}
+      <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col lg:sticky lg:top-0 lg:h-screen">
+        {/* En-tête Cabinet */}
         <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-6">
           {agencyLogoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -149,25 +158,32 @@ export default function AdminSidebar({
               className="h-8 w-8 rounded-md object-contain"
             />
           ) : (
-            <div className={cn("flex h-8 w-8 items-center justify-center rounded-md text-xs font-bold", brandBadgeClass)}>
+            <div
+              className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-md text-xs font-bold shadow-sm",
+                brandBadgeClass
+              )}
+            >
               {agencyName.slice(0, 2).toUpperCase()}
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold text-slate-900">
+            <p className="truncate text-sm font-bold text-slate-900" title={agencyName}>
               {agencyName}
             </p>
             <p className="text-xs text-slate-500">Espace Cabinet</p>
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col justify-between p-4">
+        {/* Liens de navigation */}
+        <div className="flex flex-1 flex-col justify-between overflow-y-auto p-4">
           {navContent}
 
+          {/* Profil utilisateur & Déconnexion en bas de barre latérale */}
           <div className="mt-6 border-t border-slate-200 pt-4">
             <div className="mb-3 flex items-center justify-between gap-2 px-2">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-slate-900">
+                <p className="truncate text-sm font-semibold text-slate-900">
                   {userFirstName} {userLastName}
                 </p>
                 <Badge variant="secondary" className="mt-0.5 text-[10px]">
@@ -178,59 +194,31 @@ export default function AdminSidebar({
             <Button
               variant="outline"
               size="sm"
-              className="w-full justify-start"
+              className="w-full justify-start text-slate-600 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
               onClick={handleLogout}
               disabled={loggingOut}
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-4 w-4 mr-2" />
               <span>{loggingOut ? "Déconnexion..." : "Déconnexion"}</span>
             </Button>
           </div>
         </div>
       </aside>
 
-      {/* Topbar Mobile + Header Desktop */}
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 lg:px-8">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Ouvrir le menu"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-          <span className="text-sm font-semibold text-slate-900 lg:hidden">
-            {agencyName}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <span className="hidden text-sm text-slate-600 sm:inline">
-            Bonjour, <strong className="text-slate-900">{userFirstName}</strong>
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleLogout}
-            disabled={loggingOut}
-          >
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Déconnexion</span>
-          </Button>
-        </div>
-      </header>
-
-      {/* Sheet Mobile */}
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen} side="left">
+      {/* Sheet Tiroir Mobile */}
+      <Sheet open={mobileOpen} onOpenChange={(open) => !open && onMobileClose?.()} side="left">
         <div className="mb-6 flex items-center gap-3 border-b border-slate-200 pb-4">
-          <div className={cn("flex h-8 w-8 items-center justify-center rounded-md text-xs font-bold", brandBadgeClass)}>
+          <div
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-md text-xs font-bold text-white",
+              brandBadgeClass
+            )}
+          >
             {agencyName.slice(0, 2).toUpperCase()}
           </div>
           <div>
             <p className="text-sm font-bold text-slate-900">{agencyName}</p>
-            <p className="text-xs text-slate-500">{userFirstName}</p>
+            <p className="text-xs text-slate-500">{userFirstName} {userLastName}</p>
           </div>
         </div>
         {navContent}

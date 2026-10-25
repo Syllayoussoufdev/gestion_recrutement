@@ -11,13 +11,17 @@ import {
   Kanban,
   HelpCircle,
   Plus,
+  Activity,
+  Timer,
+  CheckSquare,
+  CalendarCheck,
 } from "lucide-react";
 import { getSession } from "@/lib/auth";
 import { forAgency } from "@/lib/tenant";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ApplicationStatus } from "@prisma/client";
+import { ApplicationStatus, InterviewStatus } from "@prisma/client";
 
 export default async function AdminDashboardPage() {
   const session = await getSession();
@@ -40,6 +44,13 @@ export default async function AdminDashboardPage() {
     recentOffers,
     recentCandidates,
     applicationsByStatus,
+    totalAttempts,
+    completedAttempts,
+    attemptsWithTiming,
+    shortlistsWithTiming,
+    completedInterviews,
+    noShowInterviews,
+    totalInterviews,
   ] = await Promise.all([
     db.company.count({ where: { archived: false } }),
     db.jobOffer.count({ where: { status: "OPEN" } }),
@@ -69,7 +80,51 @@ export default async function AdminDashboardPage() {
       by: ["status"],
       _count: { status: true },
     }),
+    db.assessmentAttempt.count(),
+    db.assessmentAttempt.count({ where: { submittedAt: { not: null } } }),
+    db.assessmentAttempt.findMany({
+      where: { startedAt: { not: null }, submittedAt: { not: null } },
+      select: { startedAt: true, submittedAt: true },
+    }),
+    db.shortlist.findMany({
+      where: { sentAt: { not: null } },
+      select: { sentAt: true, jobOffer: { select: { createdAt: true } } },
+    }),
+    db.interview.count({ where: { status: "COMPLETED" } }),
+    db.interview.count({
+      where: {
+        status: {
+          in: [InterviewStatus.NO_SHOW_CANDIDATE, InterviewStatus.NO_SHOW_CLIENT],
+        },
+      },
+    }),
+    db.interview.count(),
   ]);
+
+  // Métriques de pilotage PRD V2 §13
+  const testCompletionRate = totalAttempts > 0 ? Math.round((completedAttempts / totalAttempts) * 100) : 0;
+
+  let medianTestMinutes = 0;
+  if (attemptsWithTiming.length > 0) {
+    const durations = attemptsWithTiming
+      .map((a) => (a.submittedAt!.getTime() - a.startedAt!.getTime()) / 60000)
+      .sort((a, b) => a - b);
+    const mid = Math.floor(durations.length / 2);
+    medianTestMinutes = Math.max(1, Math.round(durations.length % 2 !== 0 ? durations[mid] : (durations[mid - 1] + durations[mid]) / 2));
+  }
+
+  let medianOfferToShortlistDays = 0;
+  if (shortlistsWithTiming.length > 0) {
+    const days = shortlistsWithTiming
+      .map((s) => (s.sentAt!.getTime() - s.jobOffer.createdAt.getTime()) / (1000 * 60 * 60 * 24))
+      .sort((a, b) => a - b);
+    const mid = Math.floor(days.length / 2);
+    medianOfferToShortlistDays = Math.max(1, Math.round(days.length % 2 !== 0 ? days[mid] : (days[mid - 1] + days[mid]) / 2));
+  }
+
+  const interviewAttendanceRate = totalInterviews > 0
+    ? Math.round((completedInterviews / Math.max(1, completedInterviews + noShowInterviews)) * 100)
+    : 100;
 
   const statusMap = new Map(applicationsByStatus.map((s) => [s.status, s._count.status]));
   const identifiedCount = statusMap.get(ApplicationStatus.IDENTIFIED) || 0;
@@ -192,6 +247,101 @@ export default async function AdminDashboardPage() {
             <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-center space-y-1">
               <p className="text-xs text-emerald-700 font-medium">Recrutés (Placés)</p>
               <p className="text-xl font-bold text-emerald-900">{placedCount}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Indicateurs de Performance du Pilote (PRD V2 §13) */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Activity className="h-4 w-4 text-primary" />
+                Indicateurs de Performance du Pilote (PRD V2 §13)
+              </CardTitle>
+              <CardDescription>
+                Mesures opérationnelles de qualification, réactivité et conversion par cabinet.
+              </CardDescription>
+            </div>
+            <Badge variant="outline" className="w-fit text-xs font-normal text-slate-600 bg-slate-50">
+              Cabinet : {session.agencyName || "Pilote"}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Métrique 1 : Taux de complétion des tests */}
+            <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-xs space-y-2">
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-xs font-medium uppercase tracking-wider">
+                  Tests Complétés
+                </span>
+                <CheckSquare className="h-4 w-4 text-blue-600" />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900">{testCompletionRate}%</span>
+                <span className="text-xs text-slate-500">({completedAttempts}/{totalAttempts || 0})</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-blue-600 h-1.5 rounded-full transition-all"
+                  style={{ width: `${Math.min(100, testCompletionRate)}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-slate-500">Taux de soumission des évaluations</p>
+            </div>
+
+            {/* Métrique 2 : Délai médian du test */}
+            <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-xs space-y-2">
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-xs font-medium uppercase tracking-wider">
+                  Durée Moyenne Test
+                </span>
+                <Timer className="h-4 w-4 text-emerald-600" />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900">{medianTestMinutes} min</span>
+              </div>
+              <p className="text-[11px] text-slate-500">Délai médian entre début et fin de test</p>
+            </div>
+
+            {/* Métrique 3 : Délai Offre -> 1ère Shortlist */}
+            <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-xs space-y-2">
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-xs font-medium uppercase tracking-wider">
+                  Offre → Shortlist
+                </span>
+                <Clock className="h-4 w-4 text-amber-600" />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900">
+                  {medianOfferToShortlistDays > 0 ? `${medianOfferToShortlistDays} j` : "N/D"}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500">Délai médian offre → première shortlist</p>
+            </div>
+
+            {/* Métrique 4 : Taux de présence aux entretiens */}
+            <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-xs space-y-2">
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-xs font-medium uppercase tracking-wider">
+                  Présence Entretiens
+                </span>
+                <CalendarCheck className="h-4 w-4 text-indigo-600" />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-slate-900">{interviewAttendanceRate}%</span>
+                <span className="text-xs text-slate-500">({completedInterviews} tenus)</span>
+              </div>
+              <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-indigo-600 h-1.5 rounded-full transition-all"
+                  style={{ width: `${Math.min(100, interviewAttendanceRate)}%` }}
+                />
+              </div>
+              <p className="text-[11px] text-slate-500">Ratio entretiens réalisés vs absences</p>
             </div>
           </div>
         </CardContent>

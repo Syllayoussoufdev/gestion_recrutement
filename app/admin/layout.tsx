@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import AdminSidebar from "@/components/admin/AdminSidebar";
+import AdminShell from "@/components/admin/AdminShell";
 
 export default async function AdminLayout({
   children,
@@ -31,18 +31,15 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <AdminSidebar
-        agencyName={agency.name}
-        agencyLogoUrl={agency.logoUrl}
-        brandKey={agency.brandKey}
-        userFirstName={session.firstName}
-        userLastName={session.lastName}
-        userRole={session.role}
-      />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <main className="flex-1 p-6 lg:p-8">{children}</main>
-      </div>
-    </div>
+    <AdminShell
+      agencyName={agency.name}
+      agencyLogoUrl={agency.logoUrl}
+      brandKey={agency.brandKey}
+      userFirstName={session.firstName}
+      userLastName={session.lastName}
+      userRole={session.role}
+    >
+      {children}
+    </AdminShell>
   );
 }
