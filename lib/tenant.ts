@@ -24,6 +24,9 @@ export const TENANT_SCOPED_MODELS = new Set([
   "AttemptAnswer",
   "Shortlist",
   "ShortlistItem",
+  "InterviewProposal",
+  "InterviewSlot",
+  "Interview",
 ]);
 
 /**

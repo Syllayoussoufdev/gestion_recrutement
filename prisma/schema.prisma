@@ -49,6 +49,28 @@ enum ClientDecision {
   NEEDS_INFO
 }
 
+enum InterviewProposalStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  CANCELLED
+}
+
+enum InterviewMode {
+  VISIO
+  PHONE
+  ONSITE
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW_CANDIDATE
+  NO_SHOW_CLIENT
+}
+
 enum ApplicationStatus {
   IDENTIFIED
   CONTACTED
@@ -141,6 +163,9 @@ model Agency {
   attemptAnswers       AttemptAnswer[]
   shortlists           Shortlist[]
   shortlistItems       ShortlistItem[]
+  interviewProposals   InterviewProposal[]
+  interviewSlots       InterviewSlot[]
+  interviews           Interview[]
 
   @@index([slug])
   @@index([status])
@@ -174,6 +199,7 @@ model User {
   auditLogs      AuditLog[]
   gradedAttempts AssessmentAttempt[] @relation("AttemptGradedBy")
   createdShortlists Shortlist[]      @relation("ShortlistCreatedBy")
+  interviewProposalsProposed InterviewProposal[] @relation("ProposalCreatedBy")
 
   @@index([agencyId])
   @@index([email])
@@ -322,6 +348,8 @@ model Application {
   messages           Message[]
   assessmentAttempts AssessmentAttempt[]
   shortlistItems     ShortlistItem[]
+  interviewProposals InterviewProposal[]
+  interviews         Interview[]
 
   @@unique([candidateId, jobOfferId])
   @@index([agencyId])
@@ -621,4 +649,75 @@ model ShortlistItem {
   @@index([applicationId])
   @@index([consentStatus])
   @@index([clientDecision])
+}
+
+// ─── RENDEZ-VOUS & ENTRETIENS (Étape 10 / PRD V2 §7) ─────────
+
+model InterviewProposal {
+  id             String                  @id @default(cuid())
+  agencyId       String
+  agency         Agency                  @relation(fields: [agencyId], references: [id])
+  applicationId  String
+  application    Application             @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  proposedByRole Role                    // CLIENT ou CONSULTANT
+  proposedById   String
+  proposedBy     User                    @relation("ProposalCreatedBy", fields: [proposedById], references: [id])
+  status         InterviewProposalStatus @default(PENDING)
+  expiresAt      DateTime
+  tokenHash      String                  @unique // SHA-256 du jeton secret pour accès public /rdv/[token] (R6)
+  message        String?                 // Message d'accompagnement ou consignes
+  mode           InterviewMode           @default(VISIO)
+  locationOrLink String?                 // Lien de visioconférence ou adresse physique
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  slots          InterviewSlot[]
+  interview      Interview?
+
+  @@index([agencyId])
+  @@index([applicationId])
+  @@index([tokenHash])
+  @@index([status])
+}
+
+model InterviewSlot {
+  id         String            @id @default(cuid())
+  agencyId   String
+  agency     Agency            @relation(fields: [agencyId], references: [id])
+  proposalId String
+  proposal   InterviewProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  startsAt   DateTime          // Horodatage UTC
+  endsAt     DateTime          // Horodatage UTC
+  isChosen   Boolean           @default(false)
+
+  @@index([agencyId])
+  @@index([proposalId])
+  @@index([startsAt])
+}
+
+model Interview {
+  id             String            @id @default(cuid())
+  agencyId       String
+  agency         Agency            @relation(fields: [agencyId], references: [id])
+  applicationId  String
+  application    Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  proposalId     String?           @unique
+  proposal       InterviewProposal? @relation(fields: [proposalId], references: [id])
+  startsAt       DateTime          // Horodatage UTC
+  endsAt         DateTime          // Horodatage UTC
+  timezone       String            @default("Africa/Abidjan")
+  mode           InterviewMode     @default(VISIO)
+  locationOrLink String?           // Lien visio ou adresse
+  status         InterviewStatus   @default(SCHEDULED)
+  cancelReason   String?           // Motif d'annulation éventuel
+  icsUid         String            // UID unique pour le fichier calendrier .ics
+  reminderSentAt DateTime?         // Horodatage du rappel
+  resultNote     String?           // Compte-rendu du recruteur / client après entretien
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([agencyId])
+  @@index([applicationId])
+  @@index([status])
+  @@index([startsAt])
 }
