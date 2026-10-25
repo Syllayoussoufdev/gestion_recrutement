@@ -133,6 +133,13 @@ export default function OfferDetailActions({
           </Link>
         </Button>
 
+        {/* Bouton Export CSV Pipeline */}
+        <Button variant="outline" size="sm" asChild>
+          <a href={`/api/admin/offres/${offerId}/export`} download className="flex items-center gap-1.5">
+            <span>📊 Export CSV</span>
+          </a>
+        </Button>
+
         {/* Bouton Assigner Candidat */}
         <Button
           variant="outline"

@@ -106,12 +106,20 @@ export default function AdminCandidatsPage() {
             Gestion du vivier candidat, CVthèque sécurisée et suivi des compétences.
           </p>
         </div>
-        <Button asChild className="shrink-0">
-          <Link href="/admin/candidats/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Nouveau candidat
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <a href="/api/admin/candidats/export" download className="flex items-center gap-1.5">
+              <span>📊</span>
+              <span>Exporter CSV</span>
+            </a>
+          </Button>
+          <Button asChild className="shrink-0">
+            <Link href="/admin/candidats/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Nouveau candidat
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Barre de filtres */}
