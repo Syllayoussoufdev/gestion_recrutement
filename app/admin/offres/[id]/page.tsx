@@ -11,6 +11,7 @@ import {
   Clock,
   ChevronRight,
   ExternalLink,
+  Kanban,
 } from "lucide-react";
 import { marked } from "marked";
 import { getSession } from "@/lib/auth";
@@ -211,6 +212,12 @@ export default async function AdminOffreDetailPage({ params }: PageProps) {
               Progression des candidats assignés à ce recrutement.
             </CardDescription>
           </div>
+          <Button asChild size="sm" variant="outline">
+            <Link href={`/admin/offres/${offer.id}/pipeline`} className="flex items-center gap-1.5">
+              <Kanban className="h-4 w-4" />
+              <span>Ouvrir le Kanban complet</span>
+            </Link>
+          </Button>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Funnel badges */}

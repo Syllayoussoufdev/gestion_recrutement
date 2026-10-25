@@ -10,6 +10,7 @@ import {
   Check,
   X,
   Search,
+  Kanban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,6 +117,14 @@ export default function OfferDetailActions({
           <option value={OfferStatus.DRAFT}>Brouillon</option>
           <option value={OfferStatus.CLOSED}>Clôturée</option>
         </select>
+
+        {/* Bouton Vue Kanban Pipeline */}
+        <Button variant="default" size="sm" asChild>
+          <Link href={`/admin/offres/${offerId}/pipeline`} className="flex items-center gap-1.5">
+            <Kanban className="h-4 w-4" />
+            <span>Vue Pipeline (Kanban)</span>
+          </Link>
+        </Button>
 
         {/* Bouton Assigner Candidat */}
         <Button
