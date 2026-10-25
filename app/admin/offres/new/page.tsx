@@ -1,8 +1,35 @@
-export default function AdminOffreNewPage() {
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/auth";
+import { forAgency } from "@/lib/tenant";
+import OfferForm from "@/components/admin/OfferForm";
+
+interface PageProps {
+  searchParams: Promise<{ companyId?: string }>;
+}
+
+export default async function AdminOffreNewPage({ searchParams }: PageProps) {
+  const session = await getSession();
+  if (!session || (session.role !== "AGENCY_ADMIN" && session.role !== "CONSULTANT") || !session.agencyId) {
+    redirect("/login");
+  }
+
+  const { companyId } = await searchParams;
+  const db = forAgency(session);
+
+  const companies = await db.company.findMany({
+    where: { archived: false },
+    select: {
+      id: true,
+      name: true,
+      logoUrl: true,
+    },
+    orderBy: { name: "asc" },
+  });
+
   return (
-    <div className="space-y-2">
-      <h1 className="text-2xl font-bold text-slate-900">Nouvelle offre</h1>
-      <p className="text-sm text-slate-600">À implémenter — Étape 5</p>
-    </div>
+    <OfferForm
+      companies={companies}
+      defaultCompanyId={companyId}
+    />
   );
 }
