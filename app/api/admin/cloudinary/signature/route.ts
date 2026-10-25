@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth";
-import { generateUploadSignature } from "@/lib/cloudinary";
+import { generateUploadSignature, generateDocumentUploadSignature } from "@/lib/cloudinary";
 
 const signatureSchema = z.object({
   folder: z.string().optional(),
   publicId: z.string().optional(),
+  type: z.enum(["upload", "authenticated"]).optional(),
+  kind: z.enum(["logo", "cv", "document"]).optional(),
 });
 
 export async function POST(request: Request) {
@@ -31,10 +33,26 @@ export async function POST(request: Request) {
   }
 
   const agencySlug = session.agencySlug || session.agencyId || "default";
-  const defaultFolder = `stratos/${agencySlug}/logos`;
-  const folder = parsed.data.folder || defaultFolder;
+  const kind = parsed.data.kind || "logo";
 
   try {
+    if (kind === "cv" || kind === "document" || parsed.data.type === "authenticated") {
+      const defaultFolder =
+        kind === "cv"
+          ? `stratos/${agencySlug}/cvs`
+          : `stratos/${agencySlug}/documents`;
+      const folder = parsed.data.folder || defaultFolder;
+
+      const signatureData = generateDocumentUploadSignature({
+        folder,
+        type: "authenticated",
+      });
+      return NextResponse.json(signatureData, { status: 200 });
+    }
+
+    const defaultFolder = `stratos/${agencySlug}/logos`;
+    const folder = parsed.data.folder || defaultFolder;
+
     const signatureData = generateUploadSignature({
       folder,
       publicId: parsed.data.publicId,
